@@ -16,9 +16,9 @@ router.use(requireAuth);
 
 router.get("/data", getLockStatus);
 
-router.patch("/off", lockDoor);
+router.post("/off", lockDoor);
 
-router.patch("/on", unlockDoor);
+router.post("/on", unlockDoor);
 
 router.get("/history", getLockHistory);
 

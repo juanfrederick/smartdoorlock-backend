@@ -37,7 +37,7 @@ const getLockStatus = async (req, res) => {
 
     const data = { id: snapshot.key, ...snapshot.val() };
 
-    res.status(200).json({ status: data });
+    res.status(200).json({ ...data });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }

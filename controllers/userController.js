@@ -104,7 +104,7 @@ const userSignup = async (req, res) => {
     const id = pushSnapshot.key;
     const token = generateToken(id);
 
-    res.status(200).json({ id: token, email: data.email });
+    res.status(200).json({ token, email: data.email });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -128,7 +128,7 @@ const userUpdateDetails = async (req, res) => {
       lockId: newLockID,
     };
 
-    res.status(200).json({ user: updatedData });
+    res.status(200).json({ ...updatedData });
   } catch (error) {
     res.status(400).json({ error: error.message });
   }
@@ -145,7 +145,7 @@ const userGetDetails = async (req, res) => {
       lockId: newLockID,
     };
 
-    res.status(200).json({ user: updatedData });
+    res.status(200).json({ ...updatedData });
   } catch (error) {
     res.status(400).json({ error: "Cannot Get User Data" });
   }
