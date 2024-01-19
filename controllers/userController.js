@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import validator from "validator";
 
 const userRef = db.ref("user");
+const lockRef = db.ref("lock");
 
 const generateToken = (_id) => {
   return jwt.sign({ _id }, process.env.SECRET_KEY, { expiresIn: "3d" });
@@ -20,7 +21,7 @@ const userTest = async (req, res) => {
 };
 
 const userLogin = async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password, phoneToken } = req.body;
   let isMatch = false;
 
   try {
@@ -41,6 +42,8 @@ const userLogin = async (req, res) => {
 
     for (const key in data) {
       const snapPassword = data[key].password;
+      const snapEmail = data[key].email;
+      const snapLock = data[key].lockId;
 
       const match = await bcrypt.compare(password, snapPassword);
 
@@ -48,6 +51,33 @@ const userLogin = async (req, res) => {
         throw new Error("Incorrect password");
       } else {
         const token = generateToken(key);
+
+        /** check if user already input a snaplock */
+        if (snapLock) {
+          const lockSnapshot = await lockRef.child(snapLock).once("value");
+
+          /** Check if user snaplock exist and there's phone token on body */
+          if (lockSnapshot.exists() && phoneToken) {
+            const lockSnapshotValue = lockSnapshot.val();
+
+            const user = { email: snapEmail, phoneToken };
+
+            /** This is for adding new user or create new data */
+            if (lockSnapshotValue.connectedUser) {
+              const connectedUser = [...lockSnapshotValue.connectedUser, user];
+
+              await lockRef
+                .child(snapLock)
+                .update({ ...lockSnapshotValue, connectedUser });
+            } else {
+              const connectedUser = [user];
+
+              await lockRef
+                .child(snapLock)
+                .update({ ...lockSnapshotValue, connectedUser });
+            }
+          }
+        }
 
         res.status(200).json({
           email,
@@ -110,12 +140,110 @@ const userSignup = async (req, res) => {
   }
 };
 
+const userLogout = async (req, res) => {
+  const { id } = req.user;
+  const { phoneToken } = req.body;
+
+  try {
+    const userSnapshot = await userRef.child(id).once("value");
+    const userValue = userSnapshot.val();
+
+    const lockId = userValue.lockId;
+
+    const user = { email: userValue.email, phoneToken };
+
+    if (lockId) {
+      const lockSnapshot = await lockRef.child(lockId).once("value");
+
+      if (lockSnapshot.exists() && phoneToken) {
+        const lockSnapshotValue = lockSnapshot.val();
+
+        const lockUser = lockSnapshotValue.connectedUser;
+
+        if (lockUser) {
+          const afterDeletedUser = lockUser.filter((val) => {
+            return (
+              val.email !== user.email || val.phoneToken !== user.phoneToken
+            );
+          });
+
+          /** update new old lock user data */
+          await lockRef
+            .child(lockId)
+            .update({ ...lockSnapshotValue, connectedUser: afterDeletedUser });
+        }
+      }
+    }
+
+    res.status(200).json({ msg: "OK" });
+  } catch (error) {
+    res.status(400).json({ msg: "KO" });
+  }
+};
+
 const userUpdateDetails = async (req, res) => {
   const { id } = req.user;
-  const { lockId } = req.body;
+  const { lockId, phoneToken } = req.body;
   try {
     if (!lockId) {
       throw new Error("Id not inserted");
+    }
+
+    /** Get user by jwt */
+    const userSnapshot = await userRef.child(id).once("value");
+    const userValue = userSnapshot.val();
+
+    const user = {
+      email: userValue.email,
+      phoneToken,
+    };
+
+    /** Check if user already have lockId */
+    if (userValue.lockId) {
+      /** get the old LockId by user lockId */
+      const oldLockSnapshot = await lockRef
+        .child(userValue.lockId)
+        .once("value");
+
+      /** Check if the old lockId exist */
+      if (oldLockSnapshot.exists() && phoneToken) {
+        const oldLockValue = oldLockSnapshot.val();
+
+        const oldLockUser = oldLockValue.connectedUser;
+
+        /** Check if old connected user is exist, then remove user if email and phoneToken is same */
+        if (oldLockUser) {
+          const afterDeletedUser = oldLockUser.filter((val) => {
+            return (
+              val.email !== user.email || val.phoneToken !== user.phoneToken
+            );
+          });
+
+          /** update new old lock user data */
+          await lockRef
+            .child(userValue.lockId)
+            .update({ ...oldLockValue, connectedUser: afterDeletedUser });
+        }
+      }
+    }
+
+    /** get lock data using user lockId input */
+    const newLockSnapshot = await lockRef.child(lockId).once("value");
+
+    /** Check if lock data is exist */
+    if (newLockSnapshot.exists() && phoneToken) {
+      const newLockValue = newLockSnapshot.val();
+
+      /** This is for adding new user or create new data to that lock */
+      if (newLockValue.connectedUser) {
+        const connectedUser = [...newLockValue.connectedUser, user];
+
+        await lockRef.child(lockId).update({ ...newLockValue, connectedUser });
+      } else {
+        const connectedUser = [user];
+
+        await lockRef.child(lockId).update({ ...newLockValue, connectedUser });
+      }
     }
 
     await userRef.child(id).update({ lockId });
@@ -151,4 +279,11 @@ const userGetDetails = async (req, res) => {
   }
 };
 
-export { userLogin, userSignup, userUpdateDetails, userGetDetails, userTest };
+export {
+  userLogin,
+  userSignup,
+  userUpdateDetails,
+  userGetDetails,
+  userLogout,
+  userTest,
+};

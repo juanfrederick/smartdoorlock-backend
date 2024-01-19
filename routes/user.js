@@ -6,6 +6,7 @@ import {
   userSignup,
   userGetDetails,
   userUpdateDetails,
+  userLogout,
   userTest,
 } from "../controllers/userController.js";
 
@@ -18,6 +19,8 @@ router.post("/signup", userSignup);
 router.get("/test/firebase", userTest);
 
 router.use(requireAuth);
+
+router.post("/logout", userLogout);
 
 router.patch("/lock/details", userUpdateDetails);
 
