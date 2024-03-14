@@ -2,6 +2,7 @@ import db from "../config/dbconfig.js";
 
 const lockRef = db.ref("lock");
 const historyRef = db.ref("history");
+const detectRef = db.ref("detectHistory");
 
 const createNewDoor = async (req, res) => {
   try {
@@ -160,4 +161,33 @@ const getLockHistory = async (req, res) => {
   }
 };
 
-export { createNewDoor, getLockStatus, lockDoor, unlockDoor, getLockHistory };
+const getDetectHistory = async (req, res) => {
+  const { lockId } = req.user;
+  try {
+    const snapshot = await detectRef
+      .orderByChild("lockId")
+      .equalTo(lockId)
+      .once("value");
+
+    const snapshotValue = snapshot.val();
+    let data = [];
+
+    for (const key in snapshotValue) {
+      const test = { id: key, ...snapshotValue[key] };
+      data.push(test);
+    }
+
+    res.status(200).json({ msg: "get Detect History", data: data });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+};
+
+export {
+  createNewDoor,
+  getLockStatus,
+  lockDoor,
+  unlockDoor,
+  getLockHistory,
+  getDetectHistory,
+};

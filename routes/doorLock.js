@@ -1,6 +1,7 @@
 import express from "express";
 import {
   createNewDoor,
+  getDetectHistory,
   getLockHistory,
   getLockStatus,
   lockDoor,
@@ -21,5 +22,7 @@ router.post("/off", lockDoor);
 router.post("/on", unlockDoor);
 
 router.get("/history", getLockHistory);
+
+router.get("/detect", getDetectHistory);
 
 export default router;
